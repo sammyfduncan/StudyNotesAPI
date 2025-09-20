@@ -12,10 +12,8 @@ from .utils import process_content
 from .security import get_current_user, verify_password, create_acc_token, get_pw_hash, current_user_optional, guest_id_optional, ACCESS_TOKEN_EXP
 from .schemas import CreateUser, UserOut
 import uuid, shutil
-
 from app import security
 
-STATIC_DIR = Path(__file__).parent / "static"
 
 #defines API routes 
 router = APIRouter()
@@ -92,31 +90,6 @@ async def upload_file(
         response_data = {"message": f"Processing {file.filename}...", "content_id": content.id}
         
         return response_data
-
-#endpoints for serving HTML
-@router.get("/", response_class=FileResponse)
-async def serve_index():
-     return STATIC_DIR / "index.html"
-
-@router.get("/upload.html", response_class=FileResponse)
-async def serve_upload():
-     return STATIC_DIR / "upload.html"
-
-@router.get("/results.html", response_class=FileResponse)
-async def serve_results():
-     return STATIC_DIR / "results.html"
-
-@router.get("/login.html", response_class=FileResponse)
-async def serve_login():
-    return STATIC_DIR / "login.html"
-
-@router.get("/register.html", response_class=FileResponse)
-async def serve_register():
-    return STATIC_DIR / "register.html"
-
-@router.get("/dashboard.html", response_class=FileResponse)
-async def serve_dashboard():
-    return STATIC_DIR / "dashboard.html"
 
 
 #endpoint for receiving processed notes 
