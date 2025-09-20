@@ -10,7 +10,7 @@ from .database import get_db
 from .models import Content, Notes, User
 from .utils import process_content
 from .security import get_current_user, verify_password, create_acc_token, get_pw_hash, current_user_optional, guest_id_optional, ACCESS_TOKEN_EXP
-from .schemas import CreateUser, UserCheck
+from .schemas import CreateUser, UserOut
 import uuid, shutil
 
 from app import security
@@ -21,12 +21,6 @@ STATIC_DIR = Path(__file__).parent / "static"
 router = APIRouter()
 #max file upload size in MB
 MAX_SIZE = 10 * 1024 * 1024
-
-#dependency to read guest ID from custom header
-async def guest_id_optional(
-          x_guest_id : Optional[str] = Header(None, alias="X-Guest-Id")
-) -> Optional[str]:
-     return x_guest_id
 
 #uploading content 
 @router.post("/upload/")
@@ -193,7 +187,7 @@ async def download_note(
      )
 
 #user registration endpoint
-@router.post("/users/", response_model=UserCheck)
+@router.post("/users/", response_model=UserOut)
 async def new_user(
      user : CreateUser,
      db : Session = Depends(get_db)
