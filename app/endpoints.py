@@ -21,7 +21,7 @@ router = APIRouter()
 MAX_SIZE = 10 * 1024 * 1024
 
 #uploading content 
-@router.post("/upload/")
+@router.post("/upload/", tags=["Note Creation"])
 async def upload_file(
     background_tasks : BackgroundTasks,
     file : UploadFile = File(...),
@@ -30,6 +30,15 @@ async def upload_file(
     current_user : Optional[User] = Depends(current_user_optional),
     guest_id : Optional[str] = Depends(guest_id_optional)
     ):
+        """
+        Upload lecture content to generate notes.
+        
+        Accepts files in .pdf, .pptx format, saves it,
+        and starts background task to process content and 
+        generate notes. 
+        
+        Returns content ID used to poll the results endpoint. 
+        """
         #check size
         file.file.seek(0, 2)
         file_size = file.file.tell()
@@ -93,7 +102,15 @@ async def upload_file(
 
 
 #endpoint for receiving processed notes 
-@router.get("/api/results/{content_id}", response_model=Notes)
+@router.get("/api/results/{content_id}",
+          response_model=Notes,
+          tags=["Note Creation"],
+          responses={
+               202: {"description": "Processing..."},
+               404: {"description: Note not found or permission denied"},
+               500: {"description": "Processing failed"}
+          }
+)
 async def receive_notes(
     content_id : int, 
     db : Session = Depends(get_db),
@@ -101,6 +118,13 @@ async def receive_notes(
     current_user : Optional[User] = Depends(current_user_optional),
     guest_id : Optional[str] = Depends(guest_id_optional)
 ):
+    """
+    Polls for results of a note generation task. 
+
+    Use 'content_id' obtained from '/upload' endpoint to check status.
+    If processing is complete, it returns created notes. Else, it returns 
+    status indicating that the task is still in progress. 
+    """
     #retrieve the record 
     record = db.query(Content).filter(Content.id == content_id).first()
     if not record:
@@ -118,18 +142,24 @@ async def receive_notes(
 
 
 #endpoint for dashboard to get notes belonging to user
-@router.get("/api/dashboard/", response_model=List[Notes])
+@router.get("/api/dashboard/", response_model=List[Notes], tags={"User Dashboard"})
 async def get_user_notes(
      db : Session = Depends(get_db),
      current_user : User = Depends(get_current_user)     
 ):
+     """
+     Retrieve all notes for authenticated user.
+
+     Endpoint is protected and requires valid access token.
+     Returns a list of all previously generated note records for this account.
+     """
      notes = db.query(Content).filter(
           Content.owner_id == current_user.id
           ).all()
      return notes      
      
      
-@router.get("/download/{content_id}")
+@router.get("/download/{content_id}", tags="Note Downloading")
 async def download_note(
      content_id : int,
      db : Session = Depends(get_db),
@@ -137,6 +167,12 @@ async def download_note(
      current_user : Optional[User] = Depends(security.current_user_optional),
      guest_id : Optional[str] = Depends(guest_id_optional)
      ):
+          """
+          Download created notes as a .md file. 
+
+          Can be accessed by logged in user or by guest only if have correct
+          session ID that was used for upload by the guest.
+          """
           record = db.query(Content).filter(Content.id == content_id).first()
           
           if not record or not record.note_file_path:
@@ -160,11 +196,17 @@ async def download_note(
      )
 
 #user registration endpoint
-@router.post("/users/", response_model=UserOut)
+@router.post("/users/", response_model=UserOut, tags=["Authentication"])
 async def new_user(
      user : CreateUser,
      db : Session = Depends(get_db)
 ):
+     """
+     Registers new user account.
+     Creates a new user user with user and hashed password.
+     Username must not be already taken. 
+     Returns the new users public info upon successful registration.
+     """
      db_user = db.query(User).filter(User.username == user.username).first()
 
      if (db_user):
@@ -180,11 +222,17 @@ async def new_user(
      return db_user
 
 #token/login endpoint
-@router.post("/token")
+@router.post("/token", tags=["Authentication"])
 async def login_access_token(
      form_data : OAuth2PasswordRequestForm = Depends(),
      db : Session = Depends(get_db)
 ):
+     """
+     Log in to get access token.
+     Authenticates a user based on user and password provided in form.
+     If credentials are valid, returns a JWT bearer token.
+     Token can then be used to access protected endpoints. 
+     """
      user = db.query(User).filter(
           User.username == form_data.username
      ).first()
